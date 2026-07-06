@@ -25,3 +25,9 @@ key.properties
 # Generated artifacts
 *.apk
 *.aab
+
+# IDEs and Editors
+.vscode/
+.idea/
+.kotlin/
+plan.md
