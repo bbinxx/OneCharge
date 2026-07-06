@@ -13,3 +13,15 @@
 .externalNativeBuild
 .cxx
 local.properties
+
+# Android Secrets and Keystores
+*.jks
+*.keystore
+key.properties
+
+# Log Files
+*.log
+
+# Generated artifacts
+*.apk
+*.aab
