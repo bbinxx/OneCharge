@@ -18,6 +18,10 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import androidx.glance.appwidget.updateAll
+import com.bbinxx.onecharge.ui.widget.OneChargeWidget
+import kotlinx.coroutines.CancellationException
+import android.util.Log
 
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
@@ -48,7 +52,7 @@ class SettingsViewModel @Inject constructor(
 
     fun updatePersistentNotification(enabled: Boolean) {
         updateSettings { it.copy(persistentNotification = enabled) }
-        
+
         // Start or stop service based on preference
         val intent = Intent(context, BatteryTrackerService::class.java)
         if (enabled) {
@@ -74,12 +78,19 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             // Stop service if running
             context.stopService(Intent(context, BatteryTrackerService::class.java))
-            
+
             // Delete database records
             cycleRepository.clearAllHistory()
-            
+
             // Reset settings
             saveSettingsUseCase(UserSettings())
+            try {
+                OneChargeWidget().updateAll(context)
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                Log.e("OneChargeWidget", "Unable to refresh cleared history", error)
+            }
         }
     }
 

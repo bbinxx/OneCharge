@@ -94,6 +94,10 @@ class HistoryViewModel @Inject constructor(
         }
     }
 
+    suspend fun getSessions(cycleId: Int): List<com.bbinxx.onecharge.domain.model.ChargingSession> {
+        return repository.getChargingSessions(cycleId)
+    }
+
     fun exportToCSV() {
         viewModelScope.launch {
             val list = repository.getCompletedCycles()

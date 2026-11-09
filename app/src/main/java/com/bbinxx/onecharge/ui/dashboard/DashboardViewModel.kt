@@ -16,6 +16,10 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import androidx.glance.appwidget.updateAll
+import com.bbinxx.onecharge.ui.widget.OneChargeWidget
+import kotlinx.coroutines.CancellationException
+import android.util.Log
 
 @HiltViewModel
 class DashboardViewModel @Inject constructor(
@@ -65,6 +69,7 @@ class DashboardViewModel @Inject constructor(
         viewModelScope.launch {
             val currentLevel = getBatteryLevel()
             startNewCycleUseCase(currentLevel, isManual = true)
+            refreshWidgets()
         }
     }
 
@@ -95,6 +100,17 @@ class DashboardViewModel @Inject constructor(
                 }
             }
             startNewCycleUseCase(currentLevel, isManual = true)
+            refreshWidgets()
+        }
+    }
+
+    private suspend fun refreshWidgets() {
+        try {
+            OneChargeWidget().updateAll(context)
+        } catch (error: CancellationException) {
+            throw error
+        } catch (error: Exception) {
+            Log.e("OneChargeWidget", "Unable to refresh cycle", error)
         }
     }
 

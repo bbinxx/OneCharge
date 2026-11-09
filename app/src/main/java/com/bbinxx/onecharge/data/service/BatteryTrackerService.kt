@@ -34,7 +34,7 @@ class BatteryTrackerService : Service() {
     override fun onCreate() {
         super.onCreate()
         createNotificationChannel()
-        
+
         val ticker = kotlinx.coroutines.flow.flow {
             while (true) {
                 emit(System.currentTimeMillis())
@@ -95,23 +95,37 @@ class BatteryTrackerService : Service() {
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 
-        val contentText = if (cycle != null) {
+        if (cycle != null) {
             val hours = cycle.screenOnTimeSeconds / 3600
             val minutes = (cycle.screenOnTimeSeconds % 3600) / 60
-            val sotStr = String.format("%dh %dm", hours, minutes)
-            "SOT: $sotStr  |  Battery: ${cycle.currentBatteryLevel}% (Used: ${cycle.batteryUsed}%)"
-        } else {
-            "No active battery cycle tracking."
-        }
+            val sotStr = if (hours > 0) "${hours}h ${minutes}m" else "${minutes}m"
 
-        return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("OneCharge Active Tracking")
-            .setContentText(contentText)
-            .setSmallIcon(android.R.drawable.ic_lock_idle_low_battery)
-            .setContentIntent(pendingIntent)
-            .setOngoing(true)
-            .setPriority(NotificationCompat.PRIORITY_LOW)
-            .build()
+            val estHrs = cycle.estimatedFullSotSeconds / 3600
+            val estMins = (cycle.estimatedFullSotSeconds % 3600) / 60
+            val estStr = if (estHrs > 0) "${estHrs}h ${estMins}m" else "${estMins}m"
+
+            val title = "SOT: $sotStr  |  ${cycle.currentBatteryLevel}%"
+            val text = "Estimated SOT: $estStr (Used ${cycle.batteryUsed}%)"
+
+            return NotificationCompat.Builder(this, CHANNEL_ID)
+                .setContentTitle(title)
+                .setContentText(text)
+                .setStyle(NotificationCompat.BigTextStyle().bigText(text))
+                .setSmallIcon(android.R.drawable.ic_lock_idle_low_battery)
+                .setContentIntent(pendingIntent)
+                .setOngoing(true)
+                .setPriority(NotificationCompat.PRIORITY_LOW)
+                .build()
+        } else {
+            return NotificationCompat.Builder(this, CHANNEL_ID)
+                .setContentTitle("OneCharge Tracker")
+                .setContentText("No active battery cycle tracking.")
+                .setSmallIcon(android.R.drawable.ic_lock_idle_low_battery)
+                .setContentIntent(pendingIntent)
+                .setOngoing(true)
+                .setPriority(NotificationCompat.PRIORITY_LOW)
+                .build()
+        }
     }
 
     private fun updateNotification(cycle: BatteryCycle?) {

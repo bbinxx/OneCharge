@@ -38,3 +38,7 @@ Alternatively, use standard Gradle:
 
 ## License
 MIT License
+
+## Contributing
+
+Agents must read [AGENTS.md](AGENTS.md). Setup, verification, troubleshooting, and the required `dev` → task branch → PR workflow are documented in [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).

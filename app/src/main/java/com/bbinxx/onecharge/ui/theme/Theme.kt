@@ -1,59 +1,45 @@
 package com.bbinxx.onecharge.ui.theme
 
 import android.app.Activity
-import android.os.Build
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.dynamicDarkColorScheme
-import androidx.compose.material3.dynamicLightColorScheme
-import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.runtime.SideEffect
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.platform.LocalView
+import androidx.core.view.WindowCompat
 import com.bbinxx.onecharge.domain.model.ThemeMode
 
-private val DarkColorScheme = darkColorScheme(
-    primary = Purple80,
-    secondary = PurpleGrey80,
-    tertiary = Pink80
-)
-
-private val LightColorScheme = lightColorScheme(
-    primary = Purple40,
-    secondary = PurpleGrey40,
-    tertiary = Pink40
-)
-
-private val AmoledColorScheme = darkColorScheme(
-    primary = Purple80,
-    secondary = PurpleGrey80,
-    tertiary = Pink80,
-    background = Color.Black,
-    surface = Color.Black,
-    surfaceVariant = Color(0xFF121212)
+private val PremiumDarkColorScheme = darkColorScheme(
+    primary = IosPrimary,
+    onPrimary = IosTextPrimary,
+    background = IosBg,
+    onBackground = IosTextPrimary,
+    surface = IosSurface,
+    onSurface = IosTextPrimary,
+    surfaceVariant = IosSurfaceElevated,
+    onSurfaceVariant = IosTextSecondary,
+    outline = IosBorder,
+    error = IosRed
 )
 
 @Composable
 fun OneChargeTheme(
-    themeMode: ThemeMode = ThemeMode.SYSTEM,
-    dynamicColor: Boolean = true,
+    themeMode: ThemeMode = ThemeMode.SYSTEM, // Ignored in premium theme, forces dark mode
+    dynamicColor: Boolean = true, // Ignored in premium theme
     content: @Composable () -> Unit
 ) {
-    val darkTheme = when (themeMode) {
-        ThemeMode.SYSTEM -> isSystemInDarkTheme()
-        ThemeMode.LIGHT -> false
-        ThemeMode.DARK, ThemeMode.AMOLED -> true
-    }
+    val colorScheme = PremiumDarkColorScheme
+    val view = LocalView.current
 
-    val colorScheme = when {
-        themeMode == ThemeMode.AMOLED -> AmoledColorScheme
-        dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
-            val context = LocalContext.current
-            if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
+    if (!view.isInEditMode) {
+        SideEffect {
+            val window = (view.context as Activity).window
+            window.statusBarColor = IosBg.toArgb()
+            window.navigationBarColor = IosBg.toArgb()
+            WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = false
+            WindowCompat.getInsetsController(window, view).isAppearanceLightNavigationBars = false
         }
-        darkTheme -> DarkColorScheme
-        else -> LightColorScheme
     }
 
     MaterialTheme(

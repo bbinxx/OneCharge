@@ -32,6 +32,7 @@ class PreferencesManager @Inject constructor(
         val KEY_PERSISTENT_NOTIF = booleanPreferencesKey("persistent_notification")
         val KEY_THEME_MODE = stringPreferencesKey("theme_mode")
         val KEY_DYNAMIC_COLORS = booleanPreferencesKey("dynamic_colors")
+        val KEY_SCREEN_ON_TIMESTAMP = androidx.datastore.preferences.core.longPreferencesKey("screen_on_timestamp")
     }
 
     val userSettingsFlow: Flow<UserSettings> = dataStore.data.map { preferences ->
@@ -59,6 +60,16 @@ class PreferencesManager @Inject constructor(
             preferences[KEY_PERSISTENT_NOTIF] = settings.persistentNotification
             preferences[KEY_THEME_MODE] = settings.themeMode.name
             preferences[KEY_DYNAMIC_COLORS] = settings.dynamicColors
+        }
+    }
+
+    val screenOnTimestampFlow: Flow<Long> = dataStore.data.map { preferences ->
+        preferences[KEY_SCREEN_ON_TIMESTAMP] ?: 0L
+    }
+
+    suspend fun setScreenOnTimestamp(timestamp: Long) {
+        dataStore.edit { preferences ->
+            preferences[KEY_SCREEN_ON_TIMESTAMP] = timestamp
         }
     }
 }
