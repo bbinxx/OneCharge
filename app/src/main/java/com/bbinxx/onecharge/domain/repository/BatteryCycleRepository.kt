@@ -9,6 +9,7 @@ interface BatteryCycleRepository {
     suspend fun getActiveCycle(): BatteryCycle?
     suspend fun insertCycle(cycle: BatteryCycle): Long
     suspend fun updateCycle(cycle: BatteryCycle)
+    suspend fun updateScreenOnTime(cycleId: Int, closedSeconds: Long)
     fun getCompletedCyclesFlow(): Flow<List<BatteryCycle>>
     suspend fun getCompletedCycles(): List<BatteryCycle>
     suspend fun deleteCycle(cycle: BatteryCycle)

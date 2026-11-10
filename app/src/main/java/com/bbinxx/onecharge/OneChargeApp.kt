@@ -6,6 +6,8 @@ import android.content.IntentFilter
 import com.bbinxx.onecharge.data.receiver.BatteryReceiver
 import com.bbinxx.onecharge.data.receiver.ScreenStateReceiver
 import dagger.hilt.android.HiltAndroidApp
+import androidx.core.content.ContextCompat
+import com.bbinxx.onecharge.ui.widget.WidgetRefreshScheduler
 
 @HiltAndroidApp
 class OneChargeApp : Application() {
@@ -18,6 +20,7 @@ class OneChargeApp : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        WidgetRefreshScheduler.reconcile(this)
 
         // Register battery receiver dynamically
         val batteryFilter = IntentFilter().apply {
@@ -25,14 +28,14 @@ class OneChargeApp : Application() {
             addAction(Intent.ACTION_POWER_CONNECTED)
             addAction(Intent.ACTION_POWER_DISCONNECTED)
         }
-        registerReceiver(batteryReceiver, batteryFilter)
+        ContextCompat.registerReceiver(this, batteryReceiver, batteryFilter, ContextCompat.RECEIVER_NOT_EXPORTED)
 
         // Register screen state receiver dynamically
         val screenFilter = IntentFilter().apply {
             addAction(Intent.ACTION_SCREEN_ON)
             addAction(Intent.ACTION_SCREEN_OFF)
         }
-        registerReceiver(screenStateReceiver, screenFilter)
+        ContextCompat.registerReceiver(this, screenStateReceiver, screenFilter, ContextCompat.RECEIVER_NOT_EXPORTED)
     }
 
     override fun onTerminate() {

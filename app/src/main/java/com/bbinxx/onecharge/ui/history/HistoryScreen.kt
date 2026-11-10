@@ -1,24 +1,35 @@
 package com.bbinxx.onecharge.ui.history
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.rounded.BatteryChargingFull
+import androidx.compose.material.icons.rounded.BatteryAlert
+import androidx.compose.material.icons.rounded.ChevronRight
+import androidx.compose.material.icons.rounded.Delete
+import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.bbinxx.onecharge.domain.model.BatteryCycle
+import com.bbinxx.onecharge.domain.model.ChargingSession
 import com.bbinxx.onecharge.ui.dashboard.formatDuration
 import com.bbinxx.onecharge.ui.dashboard.formatSot
+import com.bbinxx.onecharge.ui.theme.*
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -35,9 +46,15 @@ fun HistoryScreen(
     var showMenu by remember { mutableStateOf(false) }
 
     Scaffold(
+        containerColor = IosBg,
         topBar = {
-            LargeTopAppBar(
-                title = { Text("History", fontWeight = FontWeight.Bold) },
+            TopAppBar(
+                title = { Text("History", fontSize = 34.sp, fontWeight = FontWeight.Bold, letterSpacing = (-1.2).sp) },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = IosBg.copy(alpha = 0.6f),
+                    titleContentColor = IosTextPrimary,
+                    actionIconContentColor = IosPrimary
+                ),
                 actions = {
                     IconButton(onClick = { showMenu = true }) {
                         Icon(Icons.Default.MoreVert, contentDescription = "Export")
@@ -69,39 +86,39 @@ fun HistoryScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .padding(horizontal = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+                .padding(horizontal = 20.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             // Search Bar
             OutlinedTextField(
                 value = searchQuery,
                 onValueChange = { viewModel.updateSearchQuery(it) },
-                modifier = Modifier.fillMaxWidth(),
-                placeholder = { Text("Search by SOT or battery...") },
-                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
-                shape = RoundedCornerShape(16.dp),
+                modifier = Modifier.fillMaxWidth().height(52.dp),
+                placeholder = { Text("Search by SOT...", color = IosTextSecondary) },
+                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = IosTextSecondary) },
+                shape = RoundedCornerShape(12.dp),
                 singleLine = true,
                 colors = TextFieldDefaults.colors(
-                    focusedContainerColor = MaterialTheme.colorScheme.surface,
-                    unfocusedContainerColor = MaterialTheme.colorScheme.surface
+                    focusedContainerColor = IosSurfaceElevated,
+                    unfocusedContainerColor = IosSurfaceElevated,
+                    focusedTextColor = IosTextPrimary,
+                    unfocusedTextColor = IosTextPrimary,
+                    focusedIndicatorColor = Color.Transparent,
+                    unfocusedIndicatorColor = Color.Transparent,
+                    cursorColor = IosPrimary
                 )
             )
 
-            // Filters & Sort options in a Row
+            // Filters & Sort options
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Filter type chip
                 FilterTypeChip(
                     selectedType = filterType,
                     onSelected = { viewModel.updateFilterType(it) }
                 )
-
-                Spacer(modifier = Modifier.weight(1f))
-
-                // Sort option button
                 SortTypeButton(
                     selectedSort = sortType,
                     onSelected = { viewModel.updateSortType(it) }
@@ -110,28 +127,37 @@ fun HistoryScreen(
 
             if (completedCycles.isEmpty()) {
                 Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f),
+                    modifier = Modifier.fillMaxWidth().weight(1f),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        "No completed battery cycles found.",
+                        "No history records found.",
                         style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = IosTextSecondary
                     )
                 }
             } else {
                 LazyColumn(
                     modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                    contentPadding = PaddingValues(bottom = 16.dp)
+                    contentPadding = PaddingValues(bottom = 100.dp) // pad for bottom nav
                 ) {
-                    items(completedCycles, key = { it.id }) { cycle ->
-                        HistoryItemCard(
-                            cycle = cycle,
-                            onDelete = { viewModel.deleteCycle(cycle) }
-                        )
+                    // Group all cycles into a single iOS-style ListGroup
+                    item {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(20.dp))
+                                .background(IosSurface)
+                        ) {
+                            completedCycles.forEachIndexed { index, cycle ->
+                                HistoryListItem(
+                                    cycle = cycle,
+                                    viewModel = viewModel,
+                                    isLastItem = index == completedCycles.lastIndex,
+                                    onDelete = { viewModel.deleteCycle(cycle) }
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -144,14 +170,23 @@ fun FilterTypeChip(
     selectedType: FilterType,
     onSelected: (FilterType) -> Unit
 ) {
-    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         FilterType.values().forEach { type ->
-            FilterChip(
-                selected = selectedType == type,
-                onClick = { onSelected(type) },
-                label = { Text(type.name.lowercase().replaceFirstChar { it.uppercase() }) },
-                shape = RoundedCornerShape(12.dp)
-            )
+            val isSelected = selectedType == type
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(if (isSelected) IosPrimary else IosSurface)
+                    .clickable { onSelected(type) }
+                    .padding(horizontal = 12.dp, vertical = 6.dp)
+            ) {
+                Text(
+                    text = type.name.lowercase().replaceFirstChar { it.uppercase() },
+                    fontSize = 13.sp,
+                    fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium,
+                    color = if (isSelected) Color.White else IosTextSecondary
+                )
+            }
         }
     }
 }
@@ -164,26 +199,30 @@ fun SortTypeButton(
     var expanded by remember { mutableStateOf(false) }
 
     Box {
-        TextButton(onClick = { expanded = true }) {
-            Text(
-                when (selectedSort) {
-                    SortType.DATE_DESC -> "Date (Newest)"
-                    SortType.DATE_ASC -> "Date (Oldest)"
-                    SortType.SOT_DESC -> "SOT (Longest)"
-                    SortType.SOT_ASC -> "SOT (Shortest)"
-                }
-            )
-        }
+        Text(
+            text = when (selectedSort) {
+                SortType.DATE_DESC -> "Newest"
+                SortType.DATE_ASC -> "Oldest"
+                SortType.SOT_DESC -> "Longest"
+                SortType.SOT_ASC -> "Shortest"
+            },
+            fontSize = 14.sp,
+            fontWeight = FontWeight.Medium,
+            color = IosPrimary,
+            modifier = Modifier
+                .clickable { expanded = true }
+                .padding(8.dp)
+        )
         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
             SortType.values().forEach { type ->
                 DropdownMenuItem(
                     text = {
                         Text(
                             when (type) {
-                                SortType.DATE_DESC -> "Date (Newest)"
-                                SortType.DATE_ASC -> "Date (Oldest)"
-                                SortType.SOT_DESC -> "SOT (Longest)"
-                                SortType.SOT_ASC -> "SOT (Shortest)"
+                                SortType.DATE_DESC -> "Newest"
+                                SortType.DATE_ASC -> "Oldest"
+                                SortType.SOT_DESC -> "Longest"
+                                SortType.SOT_ASC -> "Shortest"
                             }
                         )
                     },
@@ -198,70 +237,151 @@ fun SortTypeButton(
 }
 
 @Composable
-fun HistoryItemCard(
+fun HistoryListItem(
     cycle: BatteryCycle,
+    viewModel: HistoryViewModel,
+    isLastItem: Boolean,
     onDelete: () -> Unit
 ) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
-    ) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
+    var expanded by remember { mutableStateOf(false) }
+    var sessions by remember { mutableStateOf<List<ChargingSession>>(emptyList()) }
+
+    LaunchedEffect(expanded) {
+        if (expanded && sessions.isEmpty()) {
+            sessions = viewModel.getSessions(cycle.id)
+        }
+    }
+
+    Column {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { expanded = !expanded }
+                .padding(horizontal = 20.dp, vertical = 16.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+            // Icon
+            val isGoodSot = cycle.screenOnTimeSeconds > 5 * 3600 // > 5 hours is "good"
+            Box(
+                modifier = Modifier
+                    .size(32.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(if (isGoodSot) IosSurfaceElevated else IosSurfaceElevated),
+                contentAlignment = Alignment.Center
             ) {
-                Column {
-                    Text(
-                        text = formatSot(cycle.screenOnTimeSeconds),
-                        fontSize = 24.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                    Text(
-                        text = formatDate(cycle.startTime),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-                    )
-                }
-
-                IconButton(onClick = onDelete) {
-                    Icon(
-                        imageVector = Icons.Default.Delete,
-                        contentDescription = "Delete entry",
-                        tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f)
-                    )
-                }
+                Icon(
+                    imageVector = if (cycle.startBatteryLevel > 80) Icons.Rounded.BatteryChargingFull else Icons.Rounded.BatteryAlert,
+                    contentDescription = null,
+                    tint = if (isGoodSot) IosGreen else IosOrange,
+                    modifier = Modifier.size(20.dp)
+                )
             }
 
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+            Spacer(modifier = Modifier.width(16.dp))
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
+            // Content
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = formatSot(cycle.screenOnTimeSeconds) + " SOT",
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = IosTextPrimary
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = formatRelativeDay(cycle.startTime) + ", " + formatTimeOnly(cycle.startTime),
+                    fontSize = 14.sp,
+                    color = IosTextSecondary
+                )
+            }
+
+            // Value
+            val usage = cycle.startBatteryLevel - (cycle.endBatteryLevel ?: cycle.currentBatteryLevel)
+            Text(
+                text = "-$usage%",
+                fontSize = 16.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = IosRed
+            )
+
+            Spacer(modifier = Modifier.width(8.dp))
+            Icon(
+                imageVector = if (expanded) Icons.Rounded.ExpandMore else Icons.Rounded.ChevronRight,
+                contentDescription = null,
+                tint = IosTextTertiary
+            )
+        }
+
+        AnimatedVisibility(visible = expanded) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(IosBg.copy(alpha = 0.3f))
+                    .padding(horizontal = 20.dp, vertical = 16.dp)
             ) {
-                Column {
-                    Text("Battery Level", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f))
-                    Text("${cycle.startBatteryLevel}% → ${cycle.endBatteryLevel ?: cycle.currentBatteryLevel}%", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Sessions", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = IosTextSecondary)
+                    IconButton(onClick = onDelete, modifier = Modifier.size(24.dp)) {
+                        Icon(Icons.Rounded.Delete, contentDescription = "Delete", tint = IosRed)
+                    }
                 }
-                Column {
-                    Text("Total Duration", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f))
-                    Text(formatDuration(cycle.durationMs), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                sessions.forEach { session ->
+                    val gained = (session.endBattery ?: session.startBattery) - session.startBattery
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            text = formatTimeOnly(session.startTime),
+                            fontSize = 14.sp,
+                            color = IosTextSecondary
+                        )
+                        Text(
+                            text = "+$gained%",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = IosGreen
+                        )
+                    }
                 }
-                Column {
-                    Text("Sessions", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f))
-                    Text("${cycle.chargingSessionsCount}", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+
+                if (sessions.isEmpty()) {
+                    Text("No partial charge sessions recorded.", fontSize = 14.sp, color = IosTextTertiary)
                 }
             }
+        }
+
+        if (!isLastItem) {
+            Divider(
+                color = IosBorder,
+                thickness = 1.dp,
+                modifier = Modifier.padding(start = 68.dp) // aligns with text
+            )
         }
     }
 }
 
-fun formatDate(timestamp: Long): String {
-    return SimpleDateFormat("dd MMM yyyy, h:mm a", Locale.getDefault()).format(Date(timestamp))
+// Helpers
+fun formatRelativeDay(timestamp: Long): String {
+    val cal = Calendar.getInstance()
+    val today = cal.get(Calendar.DAY_OF_YEAR)
+    cal.timeInMillis = timestamp
+    val targetDay = cal.get(Calendar.DAY_OF_YEAR)
+
+    return when {
+        today == targetDay -> "Today"
+        today - targetDay == 1 -> "Yesterday"
+        else -> SimpleDateFormat("MMM d", Locale.getDefault()).format(Date(timestamp))
+    }
+}
+
+fun formatTimeOnly(timestamp: Long): String {
+    return SimpleDateFormat("h:mm a", Locale.getDefault()).format(Date(timestamp))
 }

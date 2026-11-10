@@ -4,9 +4,9 @@ OneCharge is a Pixel-quality, highly optimized Android application that tracks y
 
 ## Features
 - **True Cycle Tracking:** Tracks your device from full charge until depletion.
-- **Zero Battery Drain:** Uses mathematically perfect background tracking without holding wake locks or polling the OS.
+- **Battery-conscious Updates:** Event-driven tracking with one Android-scheduled widget refresh every 15 minutes while widgets are installed; refreshes may be deferred by Android.
 - **Real-time Dashboard:** Live-ticking SOT calculation when viewing the dashboard.
-- **Glance App Widget:** A perfectly synced home screen widget to monitor your SOT at a glance.
+- **Glance App Widget:** Displays current battery and SOT snapshots without opening the app. Usage access is needed to recover screen history after the process exits.
 - **Material 3 Design:** A sleek, dynamic-color compatible UI built with Jetpack Compose.
 - **Detailed History:** Logs all your completed battery cycles with analytics like Battery Drain Per Hour.
 
@@ -38,3 +38,7 @@ Alternatively, use standard Gradle:
 
 ## License
 MIT License
+
+## Contributing
+
+Agents must read [AGENTS.md](AGENTS.md). Setup, verification, troubleshooting, and the required `dev` → task branch → PR workflow are documented in [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).

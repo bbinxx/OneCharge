@@ -2,10 +2,18 @@ package com.bbinxx.onecharge.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-val Purple80 = Color(0xFFD0BCFF)
-val PurpleGrey80 = Color(0xFFCCC2DC)
-val Pink80 = Color(0xFFEFB8C8)
+val IosBg = Color(0xFF000000)
+val IosSurface = Color(0xFF1C1C1E)
+val IosSurfaceElevated = Color(0xFF2C2C2E)
+val IosPrimary = Color(0xFF0A84FF)
 
-val Purple40 = Color(0xFF6650a4)
-val PurpleGrey40 = Color(0xFF625b71)
-val Pink40 = Color(0xFF7D5260)
+val IosTextPrimary = Color(0xFFFFFFFF)
+val IosTextSecondary = Color(0x99EBEBF5) // rgba(235, 235, 245, 0.6)
+val IosTextTertiary = Color(0x4DEBEBF5) // rgba(235, 235, 245, 0.3)
+val IosBorder = Color(0x14FFFFFF) // rgba(255, 255, 255, 0.08)
+
+// Specific accent colors used in the design
+val IosGreen = Color(0xFF30D158)
+val IosRed = Color(0xFFFF453A)
+val IosOrange = Color(0xFFFF9F0A)
+val IosBlueSecondary = Color(0xFF32ADE6)

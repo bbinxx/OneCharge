@@ -6,6 +6,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.bbinxx.onecharge.data.tracker.BatteryCycleTracker
 import com.bbinxx.onecharge.domain.model.BatteryCycle
+import com.bbinxx.onecharge.domain.model.withLiveScreenTime
 import com.bbinxx.onecharge.domain.repository.BatteryCycleRepository
 import com.bbinxx.onecharge.domain.usecase.GetActiveCycleUseCase
 import com.bbinxx.onecharge.domain.usecase.StartNewCycleUseCase
@@ -16,6 +17,9 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import com.bbinxx.onecharge.ui.widget.refreshOneChargeWidgets
+import kotlinx.coroutines.CancellationException
+import android.util.Log
 
 @HiltViewModel
 class DashboardViewModel @Inject constructor(
@@ -38,13 +42,7 @@ class DashboardViewModel @Inject constructor(
         tracker.screenOnTimeFlow,
         ticker
     ) { cycle, screenOnTime, now ->
-        if (cycle == null) return@combine null
-        if (screenOnTime > 0L) {
-            val deltaSecs = (now - screenOnTime) / 1000L
-            cycle.copy(screenOnTimeSeconds = cycle.screenOnTimeSeconds + deltaSecs)
-        } else {
-            cycle
-        }
+        cycle?.withLiveScreenTime(screenOnTime, now)
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
@@ -65,6 +63,7 @@ class DashboardViewModel @Inject constructor(
         viewModelScope.launch {
             val currentLevel = getBatteryLevel()
             startNewCycleUseCase(currentLevel, isManual = true)
+            refreshWidgets()
         }
     }
 
@@ -95,6 +94,17 @@ class DashboardViewModel @Inject constructor(
                 }
             }
             startNewCycleUseCase(currentLevel, isManual = true)
+            refreshWidgets()
+        }
+    }
+
+    private suspend fun refreshWidgets() {
+        try {
+            refreshOneChargeWidgets(context)
+        } catch (error: CancellationException) {
+            throw error
+        } catch (error: Exception) {
+            Log.e("OneChargeWidget", "Unable to refresh cycle", error)
         }
     }
 
