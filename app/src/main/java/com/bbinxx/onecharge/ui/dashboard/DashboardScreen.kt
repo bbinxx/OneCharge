@@ -30,6 +30,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.bbinxx.onecharge.domain.model.BatteryCycle
 import com.bbinxx.onecharge.ui.theme.*
 import java.text.SimpleDateFormat
@@ -40,7 +41,7 @@ import java.util.*
 fun DashboardScreen(
     viewModel: DashboardViewModel = hiltViewModel()
 ) {
-    val activeCycle by viewModel.activeCycle.collectAsState()
+    val activeCycle by viewModel.activeCycle.collectAsStateWithLifecycle()
     var showRestartDialog by remember { mutableStateOf(false) }
 
     Scaffold(

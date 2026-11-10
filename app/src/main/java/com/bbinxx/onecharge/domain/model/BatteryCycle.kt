@@ -53,3 +53,11 @@ data class BatteryCycle(
             }
         }
 }
+
+/** Project the live interval without changing the persisted cycle. */
+fun BatteryCycle.withLiveScreenTime(screenOnSince: Long, now: Long): BatteryCycle {
+    if (!isActive || screenOnSince <= 0L) return this
+    val since = maxOf(startTime, screenOnSince)
+    val elapsed = (now - since).coerceAtLeast(0L) / 1000L
+    return copy(screenOnTimeSeconds = screenOnTimeSeconds + elapsed)
+}
