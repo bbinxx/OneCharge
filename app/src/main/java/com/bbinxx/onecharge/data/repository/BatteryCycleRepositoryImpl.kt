@@ -29,6 +29,9 @@ class BatteryCycleRepositoryImpl @Inject constructor(
     override suspend fun updateCycle(cycle: BatteryCycle) =
         batteryCycleDao.update(cycle.toEntity())
 
+    override suspend fun updateScreenOnTime(cycleId: Int, closedSeconds: Long) =
+        batteryCycleDao.updateScreenOnTime(cycleId, closedSeconds)
+
     override fun getCompletedCyclesFlow(): Flow<List<BatteryCycle>> =
         batteryCycleDao.getCompletedCyclesFlow().map { list -> list.map { it.toDomain() } }
 

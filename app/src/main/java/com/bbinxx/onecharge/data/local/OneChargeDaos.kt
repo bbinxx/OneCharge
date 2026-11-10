@@ -28,6 +28,9 @@ interface BatteryCycleDao {
     @Update
     suspend fun update(cycle: BatteryCycleEntity)
 
+    @Query("UPDATE battery_cycles SET screenOnTimeSeconds = MAX(screenOnTimeSeconds, :closedSeconds) WHERE id = :cycleId AND isActive = 1")
+    suspend fun updateScreenOnTime(cycleId: Int, closedSeconds: Long)
+
     @Delete
     suspend fun delete(cycle: BatteryCycleEntity)
 

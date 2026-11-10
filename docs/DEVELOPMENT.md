@@ -53,14 +53,14 @@ Manual regression checklist:
 - Create/restart a cycle, lock/unlock, connect/disconnect power, and compare dashboard, notification, history, and widget SOT/battery readings.
 - Enable/disable persistent notifications, including notification permission denied. Reboot and confirm expected restoration.
 - Add and resize the widget at each supported size, test empty history, start/clear a cycle while the widget is present, and tap to open the app.
-- Reopen after background process termination. Periodic widget updates are best effort and may be delayed by Android; the configured interval is 30 minutes.
+- Reopen after background process termination. Periodic widget updates are best effort and may be delayed by Android; one unique WorkManager job requests updates every 15 minutes while at least one widget is installed. The XML update interval is disabled to avoid a second schedule.
 - Distinguish process death, launcher removal from recents, and force-stop: force-stop suppresses background work until the user launches the app again.
 
 If no device or SDK/dependency access is available, record the limitation and the exact pending checks. Never report checks as passed when they were not run.
 
 ### Regression check for packaged Room databases
 
-Both build variants use R8. Room 2.6.1's bundled keep rule retains database classes but does not explicitly retain the no-argument constructors. AGP 9's strict keep-rule behavior can remove those constructors, causing `WorkDatabase_Impl.<init>` to fail inside the startup provider before the activity opens. The explicit constructor rule in `app/proguard-rules.pro` covers both the application and WorkManager databases.
+Release builds use R8; debug builds retain symbols for instrumentation and debugging. Room 2.6.1's bundled keep rule retains database classes but does not explicitly retain the no-argument constructors. AGP 9's strict keep-rule behavior can remove those constructors, causing `WorkDatabase_Impl.<init>` to fail inside the startup provider before the activity opens. The explicit constructor rule in `app/proguard-rules.pro` covers both the application and WorkManager databases.
 
 After changing shrinking rules, build both variants and inspect the actual APKs (put Android SDK `cmdline-tools/latest/bin` on PATH, or supply `--apkanalyzer /path/to/apkanalyzer`):
 
@@ -70,3 +70,21 @@ python3 scripts/check_apk_database_constructors.py app/build/outputs/apk/release
 ```
 
 The check must pass for both databases. Install each variant in turn, launch it, wait, then verify the app process is still running, the activity is resumed, and that process has no fatal logcat entries. `am start -W` returning `Status: ok` alone is insufficient: Android can accept the launch before the process crashes. Leave the debug variant installed after testing unless requested otherwise. Keep app data during reinstalls.
+
+
+### Widget refresh and battery validation
+
+Widget snapshots read battery capacity and filtered screen/device usage events on IO. Stored SOT contains completed screen intervals; live SOT is projected separately and clamped to the cycle start. Usage access must be granted for historical recovery when the process has exited. Without access, the widget shows stored SOT and current battery; it cannot reconstruct missed screen transitions.
+
+`WidgetRefreshScheduler` reconciles one unique periodic job on widget updates and app process startup. Multiple widgets share the job. Removing the last widget cancels it. Existing battery/screen/cycle changes also increment persisted Glance revision state and request a render, including when a Glance session is already alive. Android owns scheduling and may delay updates in Doze or restricted battery modes. A widget cannot promise immediate minute-by-minute updates without additional battery cost.
+
+For device verification, grant usage access and add two widgets. Leave the activity for the launcher, wait across the scheduled interval, and confirm SOT/battery change without tapping. Inspect `adb shell dumpsys jobscheduler` for a single OneCharge periodic request, then remove both widgets and verify cancellation. Repeat after ordinary process death, permission revocation, and screen lock/unlock. Confirm the optional notification service has no repeating timer while the screen is off. Force-stop is distinct and suppresses scheduled work until the app is launched again.
+
+Compare power use over equal idle/screen-on windows with the same battery, network, and display conditions using Battery Historian or Perfetto. Check CPU time, scheduled executions, and wakelocks. Static review and passing tests do not prove zero battery drain. WorkManager and Glance may use short system-managed execution wakelocks; the app adds no alarm or continuously running widget refresh service.
+
+
+### Preserve personal-device data during tests
+
+Run Gradle `connectedDebugAndroidTest` on a disposable emulator/test device only: the Android Gradle test runner can uninstall both the target and test APKs during cleanup, deleting history and launcher widgets. On a personal device, build with `:app:assembleDebug :app:assembleDebugAndroidTest`, install both APKs with `adb install -r` (add `-t` for the test APK), and invoke `adb shell am instrument -w com.bbinxx.onecharge.test/androidx.test.runner.AndroidJUnitRunner`. This bypasses Gradle's install/cleanup lifecycle. Never run uninstall or data-clear commands on a personal device. Back up app data before any device workflow that can change installed packages.
+
+The dashboard uses lifecycle-aware collection so its one-second display ticker unsubscribes while the activity is stopped (after the ViewModel's five-second subscription grace period). Widget and notification updates do not depend on keeping that activity ticker alive.

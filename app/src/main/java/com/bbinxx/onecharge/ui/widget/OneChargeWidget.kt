@@ -4,6 +4,14 @@ import android.content.Context
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.produceState
+import androidx.datastore.preferences.core.Preferences
+import android.appwidget.AppWidgetManager
+import android.os.BatteryManager
+import com.bbinxx.onecharge.data.tracker.ScreenTimeReader
+import com.bbinxx.onecharge.domain.model.withLiveScreenTime
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -23,7 +31,6 @@ import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
 import androidx.glance.unit.ColorProvider
 import com.bbinxx.onecharge.MainActivity
-import com.bbinxx.onecharge.data.tracker.BatteryCycleTracker
 import com.bbinxx.onecharge.domain.model.BatteryCycle
 import com.bbinxx.onecharge.domain.repository.BatteryCycleRepository
 import dagger.hilt.EntryPoint
@@ -40,7 +47,7 @@ import java.util.Locale
 @InstallIn(SingletonComponent::class)
 interface WidgetEntryPoint {
     fun batteryCycleRepository(): BatteryCycleRepository
-    fun batteryTracker(): BatteryCycleTracker
+    fun screenTimeReader(): ScreenTimeReader
 }
 
 // iOS style colors
@@ -66,19 +73,30 @@ class OneChargeWidget : GlanceAppWidget() {
         )
         val cycles = entryPoint.batteryCycleRepository().getActiveCycleFlow()
         val initialCycle = cycles.first()
-        val screenTimes = entryPoint.batteryTracker().screenOnTimeFlow
+        val initialSnapshot = loadSnapshot(context, initialCycle, entryPoint.screenTimeReader())
         provideContent {
             val cycle by cycles.collectAsState(initial = initialCycle)
-            val screenOnTime by screenTimes.collectAsState()
-            val activeCycle = cycle?.let {
-                if (screenOnTime > 0L) {
-                    it.copy(screenOnTimeSeconds = it.screenOnTimeSeconds +
-                        ((System.currentTimeMillis() - screenOnTime) / 1000L).coerceAtLeast(0L))
-                } else it
+            val revision = currentState<Preferences>()[WidgetRefreshRevision] ?: 0L
+            val snapshot by produceState(initialSnapshot, cycle, revision) {
+                value = loadSnapshot(context, cycle, entryPoint.screenTimeReader())
             }
-            WidgetContent(activeCycle)
+            WidgetContent(snapshot)
         }
     }
+
+    private suspend fun loadSnapshot(context: Context, cycle: BatteryCycle?, reader: ScreenTimeReader): BatteryCycle? =
+        withContext(Dispatchers.IO) {
+            if (cycle == null) return@withContext null
+            val now = System.currentTimeMillis()
+            val times = reader.read(cycle.startTime, now)
+            val currentBattery = context.getSystemService(BatteryManager::class.java)
+                .getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY)
+            val snapshot = cycle.copy(
+                currentBatteryLevel = currentBattery.takeIf { it in 0..100 } ?: cycle.currentBatteryLevel,
+                screenOnTimeSeconds = maxOf(cycle.screenOnTimeSeconds, times?.closedSeconds ?: 0L)
+            )
+            snapshot.withLiveScreenTime(times?.openSince ?: 0L, now)
+        }
 
     @Composable
     private fun WidgetContent(activeCycle: BatteryCycle?) {
@@ -197,21 +215,23 @@ class OneChargeWidget : GlanceAppWidget() {
             style = TextStyle(fontSize = 18.sp, fontWeight = FontWeight.Bold, color = IosPrimary)
         )
         Spacer(modifier = GlanceModifier.height(20.dp))
-        Row(modifier = GlanceModifier.fillMaxWidth()) {
-            Column(modifier = GlanceModifier.defaultWeight()) {
-                Text(text = "Started", style = TextStyle(fontSize = 13.sp, color = IosTextSecondary))
-                Text(text = startTimeStr, style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.Medium, color = IosTextPrimary))
+        Column {
+            Row(modifier = GlanceModifier.fillMaxWidth()) {
+                Column(modifier = GlanceModifier.defaultWeight()) {
+                    Text(text = "Started", style = TextStyle(fontSize = 13.sp, color = IosTextSecondary))
+                    Text(text = startTimeStr, style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.Medium, color = IosTextPrimary))
+                }
+                Column(modifier = GlanceModifier.defaultWeight()) {
+                    Text(text = "Estimated", style = TextStyle(fontSize = 13.sp, color = IosTextSecondary))
+                    Text(text = estStr, style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.Medium, color = IosTextPrimary))
+                }
             }
-            Column(modifier = GlanceModifier.defaultWeight()) {
-                Text(text = "Estimated", style = TextStyle(fontSize = 13.sp, color = IosTextSecondary))
-                Text(text = estStr, style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.Medium, color = IosTextPrimary))
-            }
-        }
-        Spacer(modifier = GlanceModifier.height(12.dp))
-        Row(modifier = GlanceModifier.fillMaxWidth()) {
-            Column(modifier = GlanceModifier.defaultWeight()) {
-                Text(text = "Cycle Age", style = TextStyle(fontSize = 13.sp, color = IosTextSecondary))
-                Text(text = ageStr, style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.Medium, color = IosTextPrimary))
+            Spacer(modifier = GlanceModifier.height(12.dp))
+            Row(modifier = GlanceModifier.fillMaxWidth()) {
+                Column(modifier = GlanceModifier.defaultWeight()) {
+                    Text(text = "Cycle Age", style = TextStyle(fontSize = 13.sp, color = IosTextSecondary))
+                    Text(text = ageStr, style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.Medium, color = IosTextPrimary))
+                }
             }
         }
     }
@@ -219,4 +239,14 @@ class OneChargeWidget : GlanceAppWidget() {
 
 class OneChargeWidgetReceiver : GlanceAppWidgetReceiver() {
     override val glanceAppWidget: GlanceAppWidget = OneChargeWidget()
+
+    override fun onUpdate(context: Context, appWidgetManager: AppWidgetManager, appWidgetIds: IntArray) {
+        WidgetRefreshScheduler.reconcile(context)
+        super.onUpdate(context, appWidgetManager, appWidgetIds)
+    }
+
+    override fun onDisabled(context: Context) {
+        WidgetRefreshScheduler.reconcile(context)
+        super.onDisabled(context)
+    }
 }

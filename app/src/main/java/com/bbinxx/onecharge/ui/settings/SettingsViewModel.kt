@@ -18,8 +18,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
-import androidx.glance.appwidget.updateAll
-import com.bbinxx.onecharge.ui.widget.OneChargeWidget
+import com.bbinxx.onecharge.ui.widget.refreshOneChargeWidgets
 import kotlinx.coroutines.CancellationException
 import android.util.Log
 
@@ -85,7 +84,7 @@ class SettingsViewModel @Inject constructor(
             // Reset settings
             saveSettingsUseCase(UserSettings())
             try {
-                OneChargeWidget().updateAll(context)
+                refreshOneChargeWidgets(context)
             } catch (error: CancellationException) {
                 throw error
             } catch (error: Exception) {

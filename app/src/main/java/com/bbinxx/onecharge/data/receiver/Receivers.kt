@@ -61,9 +61,11 @@ class ScreenStateReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         val action = intent.action ?: return
         val tracker = context.tracker()
-        when (action) {
-            Intent.ACTION_SCREEN_ON -> tracker.onScreenOn()
-            Intent.ACTION_SCREEN_OFF -> tracker.onScreenOff()
+        runAsync {
+            when (action) {
+                Intent.ACTION_SCREEN_ON -> tracker.onScreenOn()
+                Intent.ACTION_SCREEN_OFF -> tracker.onScreenOff()
+            }
         }
     }
 }
